@@ -46,15 +46,19 @@ class CsvWarehouse(Warehouse):
                     self.doesHeaderChecked = True
                 else:
                     self.doesHeaderChecked = True
+                    self.totalReadCount += 1
                     res.append(head)
 
             i = 0
             try:
                 while i < count:
                     res.append(reader.next())
+                    self.totalReadCount += 1
                     i += 1
             except StopIteration:
                 pass
+            finally:
+                self.readSeek = csvfile.tell()
 
         return res
 
@@ -65,11 +69,33 @@ class CsvWarehouse(Warehouse):
             return res
         else:
             res = self.readBuffer
+            self.readBuffer = []
+            if self._isFileEmpty():
+                return res
+
             self.readBuffer = self._read(self.maxBufferLength)
-            return res + self.getRecord(count - len(res))
+
+            if len(res) + len(self.readBuffer) >= count:
+                res += self.readBuffer[0:count - len(res)]
+                del self.readBuffer[0:count - len(res)]
+                return res
+            else:
+                res += self.readBuffer
+                self.readBuffer = []
+                res += self.getRecord(count - len(res))
+                return res
+
+    def _isFileEmpty(self):
+        return (not os.path.isfile(self.filePath)) or os.path.getsize(self.filePath) == 0
 
     def _write(self, records):
-        pass
+        with open(self.filePath, mode='a') as csvfile:
+            writer = csv.DictWriter(csvfile, self.fieldNames)
+            if self._isFileEmpty():
+                # It's an empty/new file, write the header first
+                writer.writeheader()
+            writer.writerows(records)
+            self.totalWriteCount += len(records)
 
     def addRecord(self, records):
         if self.maxBufferLength - len(self.writeBuffer) >= len(records):
@@ -97,5 +123,32 @@ def _test():
     for r in c2.getRecord():
         print('  '.join(r))
 
+
+def _testWrite():
+    csvwh = CsvWarehouse("./test1.csv", ['Equip', 'User', 'Count'])
+    csvwh.maxBufferLength = 5
+    i = 0
+    records = []
+    while i < 20:
+        records.append({'Equip':'Fuck', 'User':'SpiderMan', 'Count':i})
+        i += 1
+
+    print(len(records))
+    csvwh.addRecord(records)
+
+    records = []
+    i = 0
+    while i <= 10:
+        records.append({'Equip':'Shit', 'User':'SuperMan', 'Count':100 + i})
+    csvwh.addRecord(records)
+
+
+def _testRead():
+    csvwh = CsvWarehouse("./test1.csv", ['Equip', 'User', 'Count'])
+    csvwh.maxBufferLength = 5
+    res = csvwh.getRecord(10)
+    for r in res:
+        print("equip {}, User {}, Count {}".format(r['Equip'], r['User'], r['Count']))
+
 if __name__ == "__main__":
-    _test()
+    _testRead()
