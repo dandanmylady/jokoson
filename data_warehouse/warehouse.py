@@ -1,4 +1,4 @@
-class warehouse:
+class Warehouse:
     """
     warehouse can be a DB/JSON/HDFS or simple files to store data.  It offers 2 basic function, feed() and fetch() """
     def getRecord(self):
@@ -30,8 +30,7 @@ class warehouse:
             other.addRecord(rc)
 
 
-
-class listWarehouse(warehouse):
+class ListWarehouse(Warehouse):
     """
     A warehouse basing on List.  It's for unit testing purpose
     """
@@ -47,8 +46,8 @@ class listWarehouse(warehouse):
 
 
 if __name__ == "__main__":
-    mywarehouse  = listWarehouse(["lyndon", "ray"])
-    other = listWarehouse(["ethan"])
+    mywarehouse  = ListWarehouse(["lyndon", "ray"])
+    other = ListWarehouse(["ethan"])
     mywarehouse.migrage(other)
     for rc in other.getRecord():
         print(rc)
